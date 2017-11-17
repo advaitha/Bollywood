@@ -1,0 +1,50 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+bollywood <- read.csv("bollywood.csv")
+```
+```{r}
+#Q1> Identify for every actor,  count of film in each verdict category and sum of total collections in each category, sorted by Count and then sum of total collections, both descending
+library(tidyverse)
+q1 <- bollywood %>% group_by(Lead, Verdict) %>% summarise(Count = n(), Total = sum(Tcollection)) %>% arrange(Lead, -Count, -Total)
+q1
+```
+```{r}
+#Q2> How can we ensure in the above result there is only 1 row per actor without lose of any information? (Hint: information from rows have to be spread to columns)
+q2.1 <- q1 %>% select(-Total) %>% spread(Verdict, Count, fill=0) %>% as.data.frame() %>%  rename_if(.predicate = is.numeric, .funs = funs(paste(., "count", sep=".")))
+q2.2 <- q1 %>% select(-Count) %>% spread(Verdict, Total, fill=0) %>% as.data.frame() %>%  rename_if(.predicate = is.numeric, .funs = funs(paste(., "Total", sep=".")))
+q2 <- q2.1 %>% inner_join(q2.2, by = c("Lead"))
+q2
+```
+
+```{r}
+#Q3> Identify actors whose earning per Hit is greater than other actors earnings per Superhit, identify both set of actors
+q3.1 <- q1 %>% mutate(PerFilm = Total/Count) %>% select(-Count, -Total) 
+q3.2 <- q3.1 %>% filter(Verdict == "Hit" | Verdict == "Super Hit") %>% spread(Verdict, PerFilm, fill = 0) 
+names(q3.2) <- names(q3.2) %>% make.names()
+q3.3 <- q3.2 %>% as.data.frame() %>% select(-Lead) 
+q3 <- q3.3 %>% pmap_dbl(function(Hit, Super.Hit){ifelse(Hit > Super.Hit, Hit, NA)}) %>% na.omit() %>% map(function(x){
+  col_names <- q3.2 %>% as.data.frame() %>% filter(Hit == x) %>% select(Lead) %>% mutate(Lead = as.character(Lead)) %>% unlist()
+  
+  col_values <- q3.2 %>% as.data.frame() %>% filter(Super.Hit < x, Super.Hit!= 0) %>% select(Lead) %>% mutate(Lead = as.character(Lead)) %>% unlist() %>% paste(collapse = ",")
+  l1 <- list(col_values)
+  names(l1) <- col_names
+  l1
+})  %>% unlist() 
+q3[which(q3!="")]
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
